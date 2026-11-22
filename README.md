@@ -13,10 +13,12 @@ Bot de RP de Jujutsu Kaisen para Discord (discord.js v14, Components V2, SQLite)
 - `/ping` — confere se o bot está vivo
 - `/ficha` — cria a ficha (nome, idade, história → sorteio de origem, clã e técnica inata, com giros e pity) ou mostra a existente
 - `/perfil [usuario]` — mostra a ficha de alguém
+- `/combate [modo_teste]` — treino em grid contra uma Maldição de Grau 4 (Azul e Vermelho com `modo_teste`)
 
 ## Estrutura
 - `src/ui/` — kit de mensagens (panel, cores, limites, fala de NPC)
 - `src/rpg/` — dados do universo, balance, sorteio, progressão, serviço e telas da ficha
+- `src/combat/` — motor puro de combate, grid, habilidades, serviço (sessão por canal) e telas
 - `src/db/` — migrações versionadas
 - `src/commands/` — slash commands (um arquivo por comando)
 - `test/` — testes, incluindo guardiões do padrão de mensagens e de cores

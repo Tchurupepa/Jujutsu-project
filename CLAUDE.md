@@ -18,5 +18,13 @@ Universo e sistemas: `docs/universo.md`. Rode `npm test` antes de todo commit.
 - Migração nova = entrada nova em `src/db/migrations.js` com `version` maior; nunca apague dado.
 - Segredos só no `.env` (fora do git). Nunca escreva token ou id real no código.
 
+## Regras de combate (rp-tactical-combat / rp-power-authoring)
+- Motor puro em `src/combat/motor.js` (`aplicar` clona o estado); sessão em JSON versionado por canal (`combats`), sem `await` entre ler e gravar.
+- **Atributo não escala dano**: dano vem de `baseDamage` da habilidade (balance.js); atributo dá vida, movimento e iniciativa.
+- Pool de EA fixo em 100, sem regen; "Recuperar" (+20) é ação comum. Toda recusa acontece ANTES de cobrar.
+- Todo dano passa por `causarDano` (funil único, grava a fonte). Crítico só por GATILHO declarado (Black Flash), nunca chance solta.
+- Habilidade nova = objeto em `src/combat/tecnicas.js` com números em `src/combat/balance.js`; o texto de regras é gerado (`regrasDe`).
+- customId do combate: `combate:<ação>:<dono>:<seq>[:<arg>]`; `seq` velho só redesenha o cartão atual.
+
 ## Próximos passos (ordem do rp-server-blueprint)
-Fase 2 servidor (canais/cargos/portaria) → aprovação da ficha pela staff → Fase 4 técnicas/árvores → Fase 5 combate → missões → economia.
+Fase 2 servidor (canais/cargos/portaria) → aprovação da ficha pela staff → árvores de técnica e site → reação (esquiva/bloqueio), linha de visão, imagem do mapa, chefes com fases, Expansão de Domínio → missões → economia.

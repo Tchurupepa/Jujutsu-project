@@ -31,6 +31,18 @@ export const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 2,
+    name: 'Combate: uma sessão viva por canal (JSON versionado) e uma por jogador',
+    up(db) {
+      db.exec(`
+        CREATE TABLE combats (
+          channel_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, state TEXT NOT NULL, updated_at INTEGER NOT NULL
+        );
+        CREATE UNIQUE INDEX combats_owner ON combats (owner_id);
+      `);
+    },
+  },
 ];
 
 export function migrate(db, migrations = MIGRATIONS) {
