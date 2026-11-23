@@ -3,7 +3,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { COR } from '../ui/cores.js';
 import { item, lista, panel, progresso } from '../ui/panel.js';
-import { ATAQUE_BASICO, RECUPERAR_EA } from './balance.js';
+import { ATAQUE_BASICO, RECUPERAR_EA, RECUPERAR_STAMINA } from './balance.js';
 import { distancia, eObstaculo } from './grid.js';
 import { alvoDe, ativoDe, porId } from './motor.js';
 import { HABILIDADES, regrasDe } from './tecnicas.js';
@@ -29,7 +29,7 @@ const statusDe = (p) => (p.status.length ? ` · ${p.status.map((s) => NOME_STATU
 function blocoEstado(e) {
   return lista(e.participantes.map((p) => item(
     `${p.emoji} **${p.nome}**${p.hp <= 0 ? ' ☠️' : ''}`,
-    `❤️ ${progresso(p.hp, p.hpMax)}${p.lado === 'jogador' ? ` · 🔷 EA ${p.ea}/${p.eaMax}` : ''}${statusDe(p)}`,
+    `❤️ ${progresso(p.hp, p.hpMax)}${p.lado === 'jogador' ? ` · 🔷 EA ${p.ea}/${p.eaMax} · 💨 Stamina ${p.stamina}/${p.staminaMax}` : ''}${statusDe(p)}`,
   )));
 }
 
@@ -51,14 +51,16 @@ export function telaCombate(e, { note = null } = {}) {
     ? botao(id('mover', `${s[1]},${s[2]}`), null, s[0], ButtonStyle.Secondary, dono.mov < (s[1] && s[2] ? 1.5 : 1))
     : botao(id('passar'), null, '⏭️', ButtonStyle.Primary)));
   const extras = [
-    botao(id('atacar'), 'Atacar', '⚔️', ButtonStyle.Danger, dono.usouComum || dist > ATAQUE_BASICO.alcance),
+    botao(id('atacar'), 'Atacar', '⚔️', ButtonStyle.Danger,
+      dono.usouComum || dist > ATAQUE_BASICO.alcance || dono.stamina < ATAQUE_BASICO.custoStamina),
     ...dono.habilidades.map((h) => {
       const hab = HABILIDADES[h];
       const rec = dono.recargas[h] ?? 0;
       return botao(id('hab', h), rec > 0 ? `${hab.nome} (${rec})` : hab.nome, hab.emoji, ButtonStyle.Primary,
         dono.usouComum || rec > 0 || dono.ea < hab.custo || dist > hab.alcance);
     }),
-    botao(id('recuperar'), 'Recuperar', '🔋', ButtonStyle.Secondary, dono.usouComum || dono.ea >= dono.eaMax),
+    botao(id('recuperar'), 'Recuperar EA', '🔋', ButtonStyle.Secondary, dono.usouComum || dono.ea >= dono.eaMax),
+    botao(id('stamina'), 'Recuperar Stamina', '💨', ButtonStyle.Secondary, dono.usouComum || dono.stamina >= dono.staminaMax),
     botao(id('fugir'), 'Fugir', '🏳️', ButtonStyle.Secondary),
   ];
   const linhas = Math.max(3, Math.ceil(extras.length / 2));
@@ -78,7 +80,7 @@ export function telaCombate(e, { note = null } = {}) {
       `### 🗺️ Mapa\n${desenharMapa(e)}`,
       `### ❤️ Estado\n${blocoEstado(e)}`,
       `### 📜 Últimos lances\n${e.log.slice(-6).join('\n')}`,
-      hab ? `### 🔵🔴 Habilidades\n${hab}\n-# Recuperar devolve ${RECUPERAR_EA} de EA (ação comum). Mover antes de atacar pode ativar o Black Flash.` : null,
+      `### 🔵🔴 Habilidades\n${hab || '-# Nenhuma habilidade ainda.'}\n-# Atacar gasta ${ATAQUE_BASICO.custoStamina} de Stamina. Recuperar EA devolve ${RECUPERAR_EA} e Recuperar Stamina devolve ${RECUPERAR_STAMINA} (ação comum). Mover antes de atacar pode ativar o Black Flash.`,
     ],
     foot: `⏭️ encerra o turno · ${porId(e, dono.id).nome} contra ${alvo?.nome ?? '—'}`,
     rows,

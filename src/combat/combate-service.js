@@ -1,7 +1,7 @@
 // Serviço do combate: carrega/grava a sessão (JSON por canal) e paga a recompensa. Síncrono: sem await entre ler e gravar.
 import { derivados } from '../rpg/progressao.js';
 import { ErroDeFicha, concederXp, getFicha, transacao } from '../rpg/ficha-service.js';
-import { MALDICAO_GRAU4, SESSION_VERSION } from './balance.js';
+import { MALDICAO_GRAU4, POOL_STAMINA, SESSION_VERSION } from './balance.js';
 import { ErroDeCombate, aplicar, criarCombate } from './motor.js';
 import { habilidadesDe } from './tecnicas.js';
 
@@ -10,6 +10,8 @@ export { ErroDeCombate };
 const ler = (row) => {
   if (!row) return null;
   const estado = JSON.parse(row.state);
+  // Sessões gravadas antes da Stamina existir: enche o pool para não quebrar a luta em andamento.
+  for (const p of estado.participantes ?? []) if (p.stamina === undefined) { p.stamina = POOL_STAMINA; p.staminaMax = POOL_STAMINA; }
   return estado.v === SESSION_VERSION ? { ...row, estado } : null;
 };
 

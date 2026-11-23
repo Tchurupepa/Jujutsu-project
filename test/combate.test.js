@@ -23,6 +23,9 @@ test('balance: números do combate travados', () => {
   assert.deepEqual(B.VERMELHO, { custo: 30, recarga: 3, alcance: 5, dano: 26, empurra: 3, impacto: 10, comboMult: 1.3 });
   assert.equal(B.POOL_EA, 100);
   assert.equal(B.RECUPERAR_EA, 20);
+  assert.equal(B.POOL_STAMINA, 100);
+  assert.equal(B.RECUPERAR_STAMINA, 30);
+  assert.deepEqual(B.ATAQUE_BASICO, { dano: 10, alcance: 1, custoStamina: 15 });
   assert.equal(B.BLACK_FLASH.minCasas, 2);
   assert.ok(B.AZUL.custo <= B.POOL_EA && B.VERMELHO.custo <= B.POOL_EA, 'cabe no pool de 100');
 });
@@ -127,6 +130,26 @@ test('Recuperar: +20 de EA como ação comum, limitado ao pool', () => {
   assert.equal(porId(aplicar(e, { tipo: 'recuperar' }), 'j').ea, 50 + B.RECUPERAR_EA);
   porId(e, 'j').ea = 100;
   assert.throws(() => aplicar(e, { tipo: 'recuperar' }), /cheia/);
+});
+
+test('Stamina: atacar gasta, recusa sem Stamina sem cobrar, Recuperar Stamina +30 limitado ao pool; NPC não gasta', () => {
+  const e = poe(novo(), { x: 1, y: 3 }, { x: 2, y: 3 });
+  const atacou = aplicar(e, { tipo: 'atacar' });
+  assert.equal(porId(atacou, 'j').stamina, B.POOL_STAMINA - B.ATAQUE_BASICO.custoStamina);
+  assert.equal(porId(atacou, 'j').ea, B.POOL_EA, 'atacar não gasta EA');
+
+  porId(e, 'j').stamina = B.ATAQUE_BASICO.custoStamina - 1;
+  assert.throws(() => aplicar(e, { tipo: 'atacar' }), /Stamina insuficiente/);
+  assert.equal(porId(e, 'j').stamina, B.ATAQUE_BASICO.custoStamina - 1, 'recusado não cobra');
+  assert.equal(inimigo(e).hp, inimigo(e).hpMax, 'recusado não causa dano');
+
+  porId(e, 'j').stamina = 50;
+  const r = aplicar(e, { tipo: 'recuperar_stamina' });
+  assert.equal(porId(r, 'j').stamina, 50 + B.RECUPERAR_STAMINA);
+  assert.equal(porId(r, 'j').ea, B.POOL_EA, 'recuperar stamina não mexe na EA');
+  porId(e, 'j').stamina = B.POOL_STAMINA;
+  assert.throws(() => aplicar(e, { tipo: 'recuperar_stamina' }), /cheia/);
+  assert.equal(inimigo(atacou).stamina, B.POOL_STAMINA, 'NPC não gasta Stamina');
 });
 
 test('Black Flash: gatilho (mover >= 2 casas + corpo a corpo), x2, devolve EA, foco e recarga; sem mover não dispara', () => {

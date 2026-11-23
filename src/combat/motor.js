@@ -2,7 +2,7 @@
 // Toda recusa acontece ANTES de cobrar. Todo dano passa por UM funil (`causarDano`), que grava a fonte.
 import { randomUUID } from 'node:crypto';
 import {
-  AGILIDADE_POR_MOV, ATAQUE_BASICO, BLACK_FLASH, GRID, MOV_BASE, POOL_EA, RECUPERAR_EA, SESSION_VERSION,
+  AGILIDADE_POR_MOV, ATAQUE_BASICO, BLACK_FLASH, GRID, MOV_BASE, POOL_EA, POOL_STAMINA, RECUPERAR_EA, RECUPERAR_STAMINA, SESSION_VERSION,
 } from './balance.js';
 import { custoDoPasso, distancia, livre } from './grid.js';
 import { HABILIDADES } from './tecnicas.js';
@@ -16,7 +16,7 @@ export function criarParticipante({ id, nome, lado, emoji, vidaMax, atributos = 
   const agi = atributos.agilidade ?? 0;
   const movMax = MOV_BASE + Math.floor(agi / AGILIDADE_POR_MOV);
   return {
-    id, nome, lado, emoji, hp: vidaMax, hpMax: vidaMax, ea: POOL_EA, eaMax: POOL_EA, pos: { ...pos },
+    id, nome, lado, emoji, hp: vidaMax, hpMax: vidaMax, ea: POOL_EA, eaMax: POOL_EA, stamina: POOL_STAMINA, staminaMax: POOL_STAMINA, pos: { ...pos },
     atr: { ...atributos }, habilidades: [...habilidades], ataque, recargas: {}, status: [],
     movMax, mov: movMax, movidas: 0, usouComum: false, dmgFrom: {},
   };
@@ -87,6 +87,10 @@ function ataqueBasico(e, ator) {
   const alcance = ator.ataque ? 1 : ATAQUE_BASICO.alcance;
   if (!alvo || distancia(ator.pos, alvo.pos) > alcance) throw new ErroDeCombate('Nenhum inimigo ao alcance do corpo a corpo.');
   exigirComum(ator);
+  // NPC não gasta Stamina; jogador paga o custo (recusa ANTES de cobrar).
+  const custo = ator.ataque ? 0 : ATAQUE_BASICO.custoStamina;
+  if (ator.stamina < custo) throw new ErroDeCombate(`Stamina insuficiente: o ataque custa ${custo} (você tem ${ator.stamina}).`);
+  ator.stamina -= custo;
   ator.usouComum = true;
   const base = ator.ataque?.dano ?? ATAQUE_BASICO.dano;
   const nome = ator.ataque?.nome ?? 'Golpe';
@@ -127,6 +131,15 @@ function recuperar(e, ator) {
   const antes = ator.ea;
   ator.ea = Math.min(ator.eaMax, ator.ea + RECUPERAR_EA);
   registrar(e, `🔋 **${ator.nome}** recupera ${ator.ea - antes} de EA.`);
+}
+
+function recuperarStamina(e, ator) {
+  exigirComum(ator);
+  if (ator.stamina >= ator.staminaMax) throw new ErroDeCombate('Sua Stamina já está cheia.');
+  ator.usouComum = true;
+  const antes = ator.stamina;
+  ator.stamina = Math.min(ator.staminaMax, ator.stamina + RECUPERAR_STAMINA);
+  registrar(e, `💨 **${ator.nome}** recupera ${ator.stamina - antes} de Stamina.`);
 }
 
 function verificarFim(e) {
@@ -188,6 +201,7 @@ export function aplicar(estado, acao) {
     case 'atacar': ataqueBasico(e, ator); break;
     case 'habilidade': usarHabilidade(e, ator, acao.id); break;
     case 'recuperar': recuperar(e, ator); break;
+    case 'recuperar_stamina': recuperarStamina(e, ator); break;
     case 'passar': break;
     default: throw new ErroDeCombate('Ação desconhecida.');
   }

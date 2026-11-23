@@ -13,12 +13,14 @@ export const GRID = {
 
 export const POOL_EA = 100;
 export const RECUPERAR_EA = 20; // ação comum
+export const POOL_STAMINA = 100; // fôlego físico: ataques comuns gastam, sem regen
+export const RECUPERAR_STAMINA = 30; // ação comum
 
 export const MOV_BASE = 3; // orçamento de movimento por turno
 export const AGILIDADE_POR_MOV = 3; // cada 3 pontos de Agilidade = +1 de orçamento
 export const CUSTO_PASSO = { reto: 1, diagonal: 1.5 };
 
-export const ATAQUE_BASICO = { dano: 10, alcance: 1 }; // comum, sem custo de EA
+export const ATAQUE_BASICO = { dano: 10, alcance: 1, custoStamina: 15 }; // comum; gasta Stamina (só jogador), sem custo de EA
 
 /**
  * Black Flash = crítico com GATILHO (não é chance): acerto corpo a corpo de quem se moveu `minCasas` neste turno.

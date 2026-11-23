@@ -43,6 +43,7 @@ export async function button(i) {
       atacar: () => ({ tipo: 'atacar' }),
       hab: () => ({ tipo: 'habilidade', id: arg }),
       recuperar: () => ({ tipo: 'recuperar' }),
+      stamina: () => ({ tipo: 'recuperar_stamina' }),
       passar: () => ({ tipo: 'passar' }),
     };
     if (!acoes[acao]) return;
