@@ -10,6 +10,8 @@ export const HABILIDADES = {
   azul: {
     id: 'azul', nome: 'Azul', emoji: '🔵', cena: 'Uma esfera de energia que dobra o espaço e arrasta tudo para dentro.',
     ...AZUL, tipo: 'comum',
+    nivel: 1,
+    regua: { dano: AZUL.dano, alcance: AZUL.alcance, puxa: AZUL.puxa, efeitos: [{ id: 'vulneravel', duracao: STATUS.atraido }] }, // Atraído = Vulnerável ao Vermelho
     executar({ ator, alvo, estado, dano, log }) {
       const { movidas } = puxar(estado, alvo, ator, AZUL.puxa);
       log(`🔵 **${ator.nome}** usa **Azul** e puxa **${alvo.nome}** ${movidas} casa(s).`);
@@ -23,6 +25,8 @@ export const HABILIDADES = {
   vermelho: {
     id: 'vermelho', nome: 'Vermelho', emoji: '🔴', cena: 'Uma esfera de energia reversa que explode para fora, repelindo tudo.',
     ...VERMELHO, tipo: 'comum',
+    nivel: 12, // rank B abre no nível 12 (régua)
+    regua: { dano: VERMELHO.dano, alcance: VERMELHO.alcance, empurra: VERMELHO.empurra, colisao: true },
     executar({ ator, alvo, estado, dano, log }) {
       const combo = temStatus(alvo, 'atraido');
       let bruto = VERMELHO.dano;
@@ -44,6 +48,7 @@ export const HABILIDADES = {
   punho_energia: {
     id: 'punho_energia', nome: 'Punho de Energia', emoji: '👊', cena: 'Energia amaldiçoada concentrada nos punhos, a um passo do Kokusen.',
     ...PUNHO_ENERGIA, tipo: 'comum',
+    regua: { semDano: true, buffsProprios: 1 },
     executar({ ator, log }) {
       tirarStatus(ator, 'punho');
       ator.status.push({ id: 'punho', turnos: PUNHO_ENERGIA.turnos });

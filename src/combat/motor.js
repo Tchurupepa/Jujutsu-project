@@ -2,7 +2,7 @@
 // Toda recusa acontece ANTES de cobrar. Todo dano passa por UM funil (`causarDano`), que grava a fonte.
 import { randomUUID } from 'node:crypto';
 import {
-  AGILIDADE_POR_MOV, ATAQUE_BASICO, BLACK_FLASH, GRID, KOKUSEN, PUNHO_ENERGIA, MOV_BASE, POOL_EA, POOL_STAMINA, RECUPERAR_EA, RECUPERAR_STAMINA, SESSION_VERSION,
+  AGILIDADE_POR_MOV, ATAQUE_BASICO, BLACK_FLASH, GRID, KOKUSEN, MOV_MAX, PUNHO_ENERGIA, MOV_BASE, POOL_EA, POOL_STAMINA, RECUPERAR_EA, RECUPERAR_STAMINA, SESSION_VERSION,
 } from './balance.js';
 import { custoDoPasso, distancia, livre } from './grid.js';
 import { HABILIDADES } from './tecnicas.js';
@@ -14,7 +14,7 @@ const LIMITE_LOG = 14;
 /** Monta um participante. `atributos` vem da ficha (ou do NPC); `habilidades` são ids de HABILIDADES. */
 export function criarParticipante({ id, nome, lado, emoji, vidaMax, atributos = {}, habilidades = [], ataque = null, pos }) {
   const agi = atributos.agilidade ?? 0;
-  const movMax = MOV_BASE + Math.floor(agi / AGILIDADE_POR_MOV);
+  const movMax = Math.min(MOV_MAX, MOV_BASE + Math.floor(agi / AGILIDADE_POR_MOV));
   return {
     id, nome, lado, emoji, hp: vidaMax, hpMax: vidaMax, ea: POOL_EA, eaMax: POOL_EA, stamina: POOL_STAMINA, staminaMax: POOL_STAMINA, pos: { ...pos },
     atr: { ...atributos }, habilidades: [...habilidades], ataque, recargas: {}, status: [],
@@ -88,7 +88,7 @@ export function chanceKokusen(ator) {
   if (!ator.status.some((s) => s.id === 'punho')) return 0;
   const k = ator.status.find((s) => s.id === 'kokusen');
   const bonus = k ? Math.max(0, KOKUSEN.chanceBonus - KOKUSEN.chanceDecai * k.acertos) : 0;
-  return PUNHO_ENERGIA.kokusenChance + bonus;
+  return Math.min(KOKUSEN.chanceMax, PUNHO_ENERGIA.kokusenChance + bonus);
 }
 
 function ataqueBasico(e, ator, rng = Math.random) {

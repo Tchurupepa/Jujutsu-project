@@ -40,6 +40,14 @@ test('atributo não escala dano: mesma habilidade, mesmo dano com Controle 0 ou 
   assert.equal(dano(0), B.AZUL.dano);
 });
 
+test('movimento: o máximo por turno é 5 casas, mesmo com muita Velocidade', () => {
+  assert.equal(B.MOV_MAX, 5);
+  const veloz = novo({ ...GOJO, atributos: { agilidade: 30 } });
+  assert.equal(porId(veloz, 'j').movMax, B.MOV_MAX);
+  assert.equal(porId(novo({ ...GOJO, atributos: { agilidade: 6 } }), 'j').movMax, 5);
+  assert.equal(porId(novo({ ...GOJO, atributos: { agilidade: 3 } }), 'j').movMax, 4);
+});
+
 test('turno: jogador abre; mover gasta orçamento (reto 1, diagonal 1,5) e recusa sem movimento', () => {
   let e = novo();
   assert.equal(ativoDe(e).id, 'j');
@@ -163,8 +171,8 @@ const comPunho = () => {
 };
 
 test('balance: Punho de Energia e Kokusen travados', () => {
-  assert.deepEqual(B.PUNHO_ENERGIA, { custo: 20, recarga: 5, alcance: 99, turnos: 4, forcaPct: 30, kokusenChance: 0.5 });
-  assert.deepEqual(B.KOKUSEN, { mult: 2, turnos: 4, eaPct: 5, chanceBonus: 20, chanceDecai: 5, danoPct: 10 });
+  assert.deepEqual(B.PUNHO_ENERGIA, { custo: 15, recarga: 5, alcance: 99, turnos: 4, forcaPct: 30, kokusenChance: 0.5 });
+  assert.deepEqual(B.KOKUSEN, { mult: 2, turnos: 4, eaPct: 5, chanceBonus: 20, chanceDecai: 5, danoPct: 10, chanceMax: 40 });
   assert.ok(B.PUNHO_ENERGIA.custo <= B.POOL_EA);
   assert.match(regrasDe('punho_energia'), /0\.5% de chance de Kokusen/);
 });
