@@ -8,7 +8,7 @@ import { distancia, eObstaculo } from './grid.js';
 import { alvoDe, ativoDe, porId } from './motor.js';
 import { HABILIDADES, regrasDe } from './tecnicas.js';
 
-const NOME_STATUS = { atraido: '🌀 Atraído', foco: '⚡ Foco' };
+const NOME_STATUS = { atraido: '🌀 Atraído', foco: '⚡ Foco', punho: '👊 Punho de Energia', kokusen: '⚡ Kokusen' };
 
 /** O mapa em emojis: jogador, inimigo, obstáculo e chão. */
 export function desenharMapa(e) {

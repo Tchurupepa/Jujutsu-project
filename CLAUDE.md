@@ -23,7 +23,8 @@ Universo e sistemas: `docs/universo.md`. Rode `npm test` antes de todo commit.
 - **Atributo não escala dano**: dano vem de `baseDamage` da habilidade (balance.js); atributo dá vida, movimento e iniciativa.
 - Pool de EA fixo em 100, sem regen; "Recuperar EA" (+20) é ação comum. Toda recusa acontece ANTES de cobrar.
 - Stamina: pool fixo em 100, sem regen; "Recuperar Stamina" (+30) é ação comum. O ataque básico gasta 15 de Stamina (só jogador); habilidades gastam EA (o dono do jogo vai definir quais gastam o quê).
-- Todo dano passa por `causarDano` (funil único, grava a fonte). Crítico só por GATILHO declarado (Black Flash), nunca chance solta.
+- Todo dano passa por `causarDano` (funil único, grava a fonte). Crítico por GATILHO declarado (Black Flash). Exceção pedida pelo dono do jogo: o Kokusen do Punho de Energia é por chance (0,5%) e o motor recebe o `rng` por parâmetro (`aplicar(estado, acao, rng)`) para o teste ser determinístico.
+- Punho de Energia (`punho_energia`, só em `modo_teste` por enquanto): custa 20 de EA, +30% de dano no ataque básico por 3 turnos e 0,5% de Kokusen por golpe. Kokusen = dano x2 + estado de 3 turnos (+5% EA/turno, +20% de chance que cai 5 a cada acerto, +10% de dano). Números em `PUNHO_ENERGIA`/`KOKUSEN` no balance.
 - Habilidade nova = objeto em `src/combat/tecnicas.js` com números em `src/combat/balance.js`; o texto de regras é gerado (`regrasDe`).
 - customId do combate: `combate:<ação>:<dono>:<seq>[:<arg>]`; `seq` velho só redesenha o cartão atual.
 

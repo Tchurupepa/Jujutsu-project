@@ -32,7 +32,7 @@ export function iniciarTreino(db, canal, dono, { nomeDiscord, modoTeste = false 
     const ficha = getFicha(db, dono);
     const atributos = ficha?.atributos ?? {};
     const habilidades = new Set(habilidadesDe(ficha?.tecnica));
-    if (modoTeste) for (const id of ['azul', 'vermelho']) habilidades.add(id);
+    if (modoTeste) for (const id of ['azul', 'vermelho', 'punho_energia']) habilidades.add(id);
     const estado = criarCombate({
       jogador: {
         id: dono, nome: ficha?.name ?? nomeDiscord ?? 'Feiticeiro', emoji: '🔷',

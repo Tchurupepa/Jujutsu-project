@@ -5,7 +5,7 @@ import * as B from '../src/combat/balance.js';
 import { agir, fugir, getCombate, iniciarTreino } from '../src/combat/combate-service.js';
 import { telaCombate, telaFim } from '../src/combat/combate-ui.js';
 import { distancia } from '../src/combat/grid.js';
-import { ErroDeCombate, aplicar, ativoDe, criarCombate, porId } from '../src/combat/motor.js';
+import { ErroDeCombate, aplicar, ativoDe, chanceKokusen, criarCombate, porId } from '../src/combat/motor.js';
 import { HABILIDADES, regrasDe } from '../src/combat/tecnicas.js';
 import { migrate } from '../src/db/migrations.js';
 import { confirmarFicha, getFicha, iniciarRascunho } from '../src/rpg/ficha-service.js';
@@ -152,6 +152,77 @@ test('Stamina: atacar gasta, recusa sem Stamina sem cobrar, Recuperar Stamina +3
   assert.equal(inimigo(atacou).stamina, B.POOL_STAMINA, 'NPC não gasta Stamina');
 });
 
+const PUNHO = { ...GOJO, habilidades: ['punho_energia'] };
+const sempre = () => 0; // rng que sempre cai no Kokusen
+const nunca = () => 0.99;
+/** Jogador colado no inimigo, com Punho de Energia ativo e já na vez seguinte (a ativação gasta a ação comum). */
+const comPunho = () => {
+  let e = poe(novo(PUNHO), { x: 1, y: 3 }, { x: 2, y: 3 });
+  e = aplicar(e, { tipo: 'habilidade', id: 'punho_energia' });
+  return aplicar(e, { tipo: 'passar' });
+};
+
+test('balance: Punho de Energia e Kokusen travados', () => {
+  assert.deepEqual(B.PUNHO_ENERGIA, { custo: 20, recarga: 5, alcance: 99, turnos: 4, forcaPct: 30, kokusenChance: 0.5 });
+  assert.deepEqual(B.KOKUSEN, { mult: 2, turnos: 4, eaPct: 5, chanceBonus: 20, chanceDecai: 5, danoPct: 10 });
+  assert.ok(B.PUNHO_ENERGIA.custo <= B.POOL_EA);
+  assert.match(regrasDe('punho_energia'), /0\.5% de chance de Kokusen/);
+});
+
+test('Punho de Energia: cobra EA, vira buff de +30% no ataque básico e expira em 3 turnos de ataque', () => {
+  let e = poe(novo(PUNHO), { x: 1, y: 3 }, { x: 2, y: 3 });
+  e = aplicar(e, { tipo: 'habilidade', id: 'punho_energia' });
+  assert.equal(porId(e, 'j').ea, B.POOL_EA - B.PUNHO_ENERGIA.custo);
+  assert.equal(porId(e, 'j').recargas.punho_energia, B.PUNHO_ENERGIA.recarga);
+  assert.ok(porId(e, 'j').status.some((s) => s.id === 'punho'));
+  e = aplicar(e, { tipo: 'passar' });
+  const antes = inimigo(e).hp;
+  const bateu = aplicar(e, { tipo: 'atacar' }, nunca);
+  assert.equal(antes - inimigo(bateu).hp, Math.round(B.ATAQUE_BASICO.dano * (1 + B.PUNHO_ENERGIA.forcaPct / 100)));
+  for (let k = 0; k < 3; k += 1) e = aplicar(e, { tipo: 'passar' });
+  assert.ok(!porId(e, 'j').status.some((s) => s.id === 'punho'), 'acabou depois de 3 turnos de ataque');
+});
+
+test('Kokusen: só com Punho ativo; sem o buff a chance é 0 mesmo com rng favorável', () => {
+  const sem = poe(novo(PUNHO), { x: 1, y: 3 }, { x: 2, y: 3 });
+  const r = aplicar(sem, { tipo: 'atacar' }, sempre);
+  assert.equal(inimigo(sem).hp - inimigo(r).hp, B.ATAQUE_BASICO.dano);
+  assert.ok(!r.log.some((l) => l.includes('KOKUSEN')));
+  const com = aplicar(comPunho(), { tipo: 'atacar' }, nunca);
+  assert.ok(!com.log.some((l) => l.includes('KOKUSEN')), 'rng alto: sem Kokusen');
+});
+
+test('Kokusen: dano x2 e abre o estado (+5% EA por turno, +20% chance, +10% dano, bônus decai a cada acerto)', () => {
+  let e = comPunho();
+  assert.equal(chanceKokusen(porId(e, 'j')), B.PUNHO_ENERGIA.kokusenChance);
+  const vida = inimigo(e).hp;
+  e = aplicar(e, { tipo: 'atacar' }, sempre);
+  assert.ok(e.log.some((l) => l.includes('KOKUSEN')));
+  assert.equal(vida - inimigo(e).hp, Math.round(B.ATAQUE_BASICO.dano * 1.3) * B.KOKUSEN.mult);
+  const k = () => porId(e, 'j').status.find((s) => s.id === 'kokusen');
+  assert.equal(k().turnos, B.KOKUSEN.turnos);
+  assert.equal(chanceKokusen(porId(e, 'j')), B.PUNHO_ENERGIA.kokusenChance + B.KOKUSEN.chanceBonus);
+
+  const eaAntes = porId(e, 'j').ea;
+  e = aplicar(e, { tipo: 'passar' }); // inicia o turno seguinte do jogador
+  assert.equal(porId(e, 'j').ea, eaAntes + Math.round(B.POOL_EA * B.KOKUSEN.eaPct / 100), '+5% de EA no início do turno');
+
+  const vida2 = inimigo(e).hp;
+  e = aplicar(e, { tipo: 'atacar' }, sempre);
+  assert.equal(vida2 - inimigo(e).hp, Math.round(Math.round(B.ATAQUE_BASICO.dano * 1.3) * B.KOKUSEN.mult * 1.1), '+10% de dano no estado');
+  assert.equal(k().acertos, 1);
+  assert.equal(k().turnos, B.KOKUSEN.turnos, 'novo Kokusen renova a duração');
+  assert.equal(chanceKokusen(porId(e, 'j')), B.PUNHO_ENERGIA.kokusenChance + B.KOKUSEN.chanceBonus - B.KOKUSEN.chanceDecai);
+});
+
+test('Kokusen: o bônus de chance nunca fica negativo e o estado acaba depois de 3 turnos', () => {
+  const j = { status: [{ id: 'punho', turnos: 3 }, { id: 'kokusen', turnos: 3, acertos: 99 }] };
+  assert.equal(chanceKokusen(j), B.PUNHO_ENERGIA.kokusenChance);
+  let e = aplicar(comPunho(), { tipo: 'atacar' }, sempre);
+  for (let n = 0; n < 4; n += 1) e = aplicar(e, { tipo: 'passar' });
+  assert.ok(!porId(e, 'j').status.some((s) => s.id === 'kokusen'));
+});
+
 test('Black Flash: gatilho (mover >= 2 casas + corpo a corpo), x2, devolve EA, foco e recarga; sem mover não dispara', () => {
   const parado = poe(novo(), { x: 1, y: 3 }, { x: 2, y: 3 });
   const normal = aplicar(parado, { tipo: 'atacar' });
@@ -214,11 +285,12 @@ test('iniciativa: maior Agilidade abre; empate preserva a ordem de entrada', () 
 test('texto de regras é gerado dos números do balance', () => {
   assert.ok(regrasDe('azul').includes(String(B.AZUL.custo)) && regrasDe('azul').includes(String(B.AZUL.puxa)));
   assert.ok(regrasDe('vermelho').includes(String(B.VERMELHO.impacto)) && regrasDe('vermelho').includes(String(B.VERMELHO.comboMult)));
-  assert.deepEqual(Object.keys(HABILIDADES).sort(), ['azul', 'vermelho']);
+  assert.deepEqual(Object.keys(HABILIDADES).sort(), ['azul', 'punho_energia', 'vermelho']);
 });
 
 test('tela: o pior caso cabe nos limites do Components V2 (4000 caracteres, 40 componentes)', () => {
-  const e = poe(novo(), { x: 1, y: 3 }, { x: 3, y: 3 });
+  const e = poe(novo({ ...GOJO, habilidades: ['azul', 'vermelho', 'punho_energia'] }), { x: 1, y: 3 }, { x: 3, y: 3 });
+  porId(e, 'j').status.push({ id: 'punho', turnos: 3 }, { id: 'kokusen', turnos: 3, acertos: 1 }, { id: 'foco', turnos: 1 });
   e.log = Array.from({ length: 14 }, (_, k) => `${k} 🔴 **Satoru** usa **Vermelho** em **Maldição de Grau 4** (combo com o Azul!) com um texto longo de teste`);
   inimigo(e).status.push({ id: 'atraido', turnos: 2 });
   const m = medir(telaCombate(e, { note: '🔄 Esse cartão estava velho; este é o atual.' }));
@@ -236,7 +308,7 @@ test('serviço: uma luta por canal e por jogador; estado persiste e o clique de 
   assert.throws(() => iniciarTreino(db, 'c1', 'u2', {}), /neste canal/);
   assert.throws(() => iniciarTreino(db, 'c2', 'u1', {}), /outra luta/);
   const { estado } = getCombate(db, 'c1');
-  assert.deepEqual(porId(estado, 'u1').habilidades.sort(), ['azul', 'vermelho']);
+  assert.deepEqual(porId(estado, 'u1').habilidades.sort(), ['azul', 'punho_energia', 'vermelho']);
 
   const r = agir(db, 'c1', 'u1', { tipo: 'mover', dx: 1, dy: 0 }, estado.seq);
   assert.equal(r.desatualizado, false);

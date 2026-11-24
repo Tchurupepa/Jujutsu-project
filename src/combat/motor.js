@@ -2,7 +2,7 @@
 // Toda recusa acontece ANTES de cobrar. Todo dano passa por UM funil (`causarDano`), que grava a fonte.
 import { randomUUID } from 'node:crypto';
 import {
-  AGILIDADE_POR_MOV, ATAQUE_BASICO, BLACK_FLASH, GRID, MOV_BASE, POOL_EA, POOL_STAMINA, RECUPERAR_EA, RECUPERAR_STAMINA, SESSION_VERSION,
+  AGILIDADE_POR_MOV, ATAQUE_BASICO, BLACK_FLASH, GRID, KOKUSEN, PUNHO_ENERGIA, MOV_BASE, POOL_EA, POOL_STAMINA, RECUPERAR_EA, RECUPERAR_STAMINA, SESSION_VERSION,
 } from './balance.js';
 import { custoDoPasso, distancia, livre } from './grid.js';
 import { HABILIDADES } from './tecnicas.js';
@@ -62,6 +62,7 @@ function causarDano(e, atacante, alvo, bruto, rotulo) {
     valor = Math.round(valor * BLACK_FLASH.focoMult);
     atacante.status = atacante.status.filter((s) => s.id !== 'foco');
   }
+  if (atacante.status.some((s) => s.id === 'kokusen')) valor *= 1 + KOKUSEN.danoPct / 100;
   valor = Math.max(1, Math.round(valor));
   alvo.hp = Math.max(0, alvo.hp - valor);
   alvo.dmgFrom[atacante.id] = (alvo.dmgFrom[atacante.id] ?? 0) + valor;
@@ -82,7 +83,15 @@ function passo(e, ator, dx, dy) {
   ator.movidas += 1;
 }
 
-function ataqueBasico(e, ator) {
+/** Chance (em %) de o golpe virar Kokusen: só com Punho de Energia ativo; o estado Kokusen soma um bônus que cai a cada acerto. */
+export function chanceKokusen(ator) {
+  if (!ator.status.some((s) => s.id === 'punho')) return 0;
+  const k = ator.status.find((s) => s.id === 'kokusen');
+  const bonus = k ? Math.max(0, KOKUSEN.chanceBonus - KOKUSEN.chanceDecai * k.acertos) : 0;
+  return PUNHO_ENERGIA.kokusenChance + bonus;
+}
+
+function ataqueBasico(e, ator, rng = Math.random) {
   const alvo = alvoDe(e, ator);
   const alcance = ator.ataque ? 1 : ATAQUE_BASICO.alcance;
   if (!alvo || distancia(ator.pos, alvo.pos) > alcance) throw new ErroDeCombate('Nenhum inimigo ao alcance do corpo a corpo.');
@@ -92,7 +101,8 @@ function ataqueBasico(e, ator) {
   if (ator.stamina < custo) throw new ErroDeCombate(`Stamina insuficiente: o ataque custa ${custo} (você tem ${ator.stamina}).`);
   ator.stamina -= custo;
   ator.usouComum = true;
-  const base = ator.ataque?.dano ?? ATAQUE_BASICO.dano;
+  let base = ator.ataque?.dano ?? ATAQUE_BASICO.dano;
+  if (ator.status.some((s) => s.id === 'punho')) base = Math.round(base * (1 + PUNHO_ENERGIA.forcaPct / 100));
   const nome = ator.ataque?.nome ?? 'Golpe';
   // Black Flash: gatilho declarado (só jogador, depois de se mover o bastante, fora da recarga). Não é chance.
   const flash = ator.lado === 'jogador' && ator.movidas >= BLACK_FLASH.minCasas && !(ator.recargas.black_flash > 0);
@@ -103,6 +113,12 @@ function ataqueBasico(e, ator) {
     ator.ea = Math.min(ator.eaMax, ator.ea + Math.round(ator.eaMax * BLACK_FLASH.eaPct / 100));
     causarDano(e, ator, alvo, base * BLACK_FLASH.mult, 'Black Flash');
     if (!ator.status.some((s) => s.id === 'foco')) ator.status.push({ id: 'foco', turnos: BLACK_FLASH.focoTurnos });
+  } else if (rng() * 100 < chanceKokusen(ator)) {
+    // Kokusen do Punho de Energia: dano x mult e abre/renova o estado Kokusen (cada acerto seguido gasta parte do bônus de chance).
+    registrar(e, '⚡ **KOKUSEN!**');
+    causarDano(e, ator, alvo, base * KOKUSEN.mult, 'Kokusen');
+    const k = ator.status.find((s) => s.id === 'kokusen');
+    if (k) { k.turnos = KOKUSEN.turnos; k.acertos += 1; } else ator.status.push({ id: 'kokusen', turnos: KOKUSEN.turnos, acertos: 0 });
   } else {
     causarDano(e, ator, alvo, base, nome);
   }
@@ -157,6 +173,11 @@ function proximoTurno(e) {
     if (p.hp <= 0) continue;
     for (const k of Object.keys(p.recargas)) p.recargas[k] = Math.max(0, p.recargas[k] - 1);
     p.status = p.status.map((s) => ({ ...s, turnos: s.turnos - 1 })).filter((s) => s.turnos > 0);
+    if (p.status.some((s) => s.id === 'kokusen')) {
+      const antes = p.ea;
+      p.ea = Math.min(p.eaMax, p.ea + Math.round(p.eaMax * KOKUSEN.eaPct / 100));
+      if (p.ea > antes) registrar(e, `⚡ Kokusen: **${p.nome}** recupera ${p.ea - antes} de EA.`);
+    }
     p.mov = p.movMax;
     p.movidas = 0;
     p.usouComum = false;
@@ -191,14 +212,14 @@ function turnoDoNpc(e) {
  * Aplica a ação do jogador da vez e, se o turno acabar, roda os turnos dos NPCs. Devolve um estado NOVO.
  * acao: { tipo: 'mover', dx, dy } | { tipo: 'atacar' } | { tipo: 'habilidade', id } | { tipo: 'recuperar' } | { tipo: 'passar' }
  */
-export function aplicar(estado, acao) {
+export function aplicar(estado, acao, rng = Math.random) {
   if (estado.fim) throw new ErroDeCombate('O combate já terminou.');
   const e = structuredClone(estado);
   const ator = ativoDe(e);
   if (ator.lado !== 'jogador') throw new ErroDeCombate('Não é a vez do jogador.');
   switch (acao.tipo) {
     case 'mover': passo(e, ator, acao.dx, acao.dy); break;
-    case 'atacar': ataqueBasico(e, ator); break;
+    case 'atacar': ataqueBasico(e, ator, rng); break;
     case 'habilidade': usarHabilidade(e, ator, acao.id); break;
     case 'recuperar': recuperar(e, ator); break;
     case 'recuperar_stamina': recuperarStamina(e, ator); break;

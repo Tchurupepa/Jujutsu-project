@@ -33,6 +33,18 @@ export const AZUL = { custo: 20, recarga: 2, alcance: 6, dano: 12, puxa: 3 };
 /** Gojo · Vermelho (Rank B): repele; bater em obstáculo/borda/criatura dá impacto; x comboMult contra Atraído. */
 export const VERMELHO = { custo: 30, recarga: 3, alcance: 5, dano: 26, empurra: 3, impacto: 10, comboMult: 1.3 };
 
+/**
+ * Punho de Energia: buff físico em si mesmo. Enquanto dura, o ataque básico dá +forcaPct% de dano e cada golpe tem
+ * `kokusenChance`% (de 0 a 100) de virar Kokusen. `turnos` conta o turno da ativação: 4 = 3 turnos seguintes para bater.
+ */
+export const PUNHO_ENERGIA = { custo: 20, recarga: 5, alcance: 99, turnos: 4, forcaPct: 30, kokusenChance: 0.5 };
+/**
+ * Kokusen (Black Flash) vindo do Punho: o golpe causa dano x`mult` e abre o estado Kokusen por `turnos` (4 = 3 turnos seguintes):
+ * +eaPct% de EA no início de cada turno, +chanceBonus pontos de chance de Kokusen (cai chanceDecai a cada Kokusen acertado
+ * enquanto o estado dura, nunca abaixo de 0) e +danoPct% de dano em tudo.
+ */
+export const KOKUSEN = { mult: 2, turnos: 4, eaPct: 5, chanceBonus: 20, chanceDecai: 5, danoPct: 10 };
+
 /** Duração dos status em turnos do alvo. Atraído = 2 para sobreviver ao turno do inimigo e chegar ao próximo do dono. */
 export const STATUS = { atraido: 2 };
 

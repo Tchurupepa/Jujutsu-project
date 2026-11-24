@@ -6,7 +6,7 @@ import { COR } from '../ui/cores.js';
 import { asEdit, notice } from '../ui/panel.js';
 
 export const data = new SlashCommandBuilder().setName('combate').setDescription('Treina em combate tático contra uma maldição.')
-  .addBooleanOption((o) => o.setName('modo_teste').setDescription('Libera as habilidades Azul e Vermelho (Gojo) para testar'));
+  .addBooleanOption((o) => o.setName('modo_teste').setDescription('Libera Azul, Vermelho e Punho de Energia para testar'));
 
 const erro = (e) => notice(COR.erro, '❌ Não deu', e instanceof ErroDeCombate ? e.message : 'Algo deu errado. Tente de novo em instantes.');
 
